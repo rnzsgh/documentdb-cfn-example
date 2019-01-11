@@ -1,0 +1,167 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Amazon DocumentDB Example
+
+
+Parameters:
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC id
+
+  SubnetId0:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet id 0
+
+  SubnetId1:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet id 1
+
+  DatabaseUser:
+    Default: root
+    Type: String
+    Description: Database admin account name
+    MinLength: 4
+    MaxLength: 16
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: Name must begin with a letter and contain only alphanumeric characters
+
+  DatabasePassword:
+    NoEcho: true
+    Type: String
+    Description: Database admin account password
+    MinLength: 6
+    MaxLength: 41
+    AllowedPattern: "[a-zA-Z0-9]*"
+    ConstraintDescription: Password must contain only alphanumeric characters
+
+  DatabaseInstanceClass:
+    Default: db.r4.large
+    Type: String
+    Description: "Database instance class"
+    ConstraintDescription: DB instance class not supported
+    AllowedValues:
+      - db.r4.large
+      - db.r4.xlarge
+      - db.r4.2xlarge
+      - db.r4.4xlarge
+      - db.r4.8xlarge
+      - db.r4.16xlarge
+
+
+Resources:
+
+  DocumentDbCluster:
+    Type: AWS::DocDB::DBCluster
+    Properties:
+      MasterUsername: !Ref DatabaseUser
+      MasterUserPassword: !Ref DatabasePassword
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      StorageEncrypted: true
+      VpcSecurityGroupIds:
+        - !Ref DbSecurityGroup
+    DependsOn: DatabaseSubnetGroup
+
+  DocumentDbInstance0:
+    Type: AWS::DocDB::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref DocumentDbCluster
+      DBInstanceClass: !Ref DatabaseInstanceClass
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-0
+
+  DocumentDbInstance1:
+    Type: AWS::DocDB::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref DocumentDbCluster
+      DBInstanceClass: !Ref DatabaseInstanceClass
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-1
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable access to the DocumentDB
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 27017
+        FromPort: 27017
+      SecurityGroupIngress:
+        SourceSecurityGroupId: !Ref AppSecurityGroup
+        IpProtocol: tcp
+        ToPort: 27017
+        FromPort: 27017
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-DbSecurityGroup
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: App security group
+      VpcId: !Ref VpcId
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-AppSecurityGroup
+
+  DatabaseSubnetGroup:
+    Type: AWS::DocDB::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Database subnet group
+      SubnetIds:
+      - !Ref SubnetId0
+      - !Ref SubnetId1
+      Tags:
+      - Key: Name
+        Value: !Ref AWS::StackName
+
+
+Outputs:
+
+  Name:
+    Description: Stack Name
+    Value: !Ref AWS::StackName
+    Export:
+      Name: !Sub ${AWS::StackName}-Name
+
+  DatabaseSubnetGroupName:
+    Description: Db subnet group name
+    Value: !Ref DatabaseSubnetGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-DatabaseSubnetGroupName
+
+  DocumentDbClusterName:
+    Description: Db cluster name
+    Value: !Ref DocumentDbCluster
+    Export:
+      Name: !Sub ${AWS::StackName}-DocumentDbClusterName
+
+  DocumentDbClusterResourceId:
+    Description: Db cluster resource id
+    Value: !GetAtt DocumentDbCluster.ClusterResourceId
+    Export:
+      Name: !Sub ${AWS::StackName}-DocumentDbClusterResourceId
+
+  DocumentDbClusterEndpoint:
+    Description: Db cluster endpoint
+    Value: !GetAtt DocumentDbCluster.Endpoint
+    Export:
+      Name: !Sub ${AWS::StackName}-DocumentDbClusterEndpoint
+
+  DocumentDbClusterReadEndpoint:
+    Description: Db cluster read endpoint
+    Value: !GetAtt DocumentDbCluster.ReadEndpoint
+    Export:
+      Name: !Sub ${AWS::StackName}-DocumentDbClusterReadEndpoint
+
+  DocumentDbClusterPort:
+    Description: Db cluster port
+    Value: !GetAtt DocumentDbCluster.Port
+    Export:
+      Name: !Sub ${AWS::StackName}-DocumentDbClusterPort
+
